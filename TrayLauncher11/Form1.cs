@@ -7,50 +7,30 @@ using System.Xml.Linq;
 
 namespace TrayLauncher11
 {
-
-    public partial class Form1 : Form
+    /// <summary>
+    /// The main form of the system tray launcher program.
+    /// </summary>
+    public partial class TrayLauncher11 : Form
     {
         private IList<ToolStripMenuItem> AppsOptions = new List<ToolStripMenuItem>();
-
         private IList<ToolStripMenuItem> UtilitiesOptions = new List<ToolStripMenuItem>();
-
         private IList<ToolStripMenuItem> GamesOptions = new List<ToolStripMenuItem>();
 
+        private IList<NotifyIcon> trayIcons = new List<NotifyIcon>();
+        private NotifyIcon processTrayIcon;
 
-        private NotifyIcon trayicon;
-
-        public void GenerateGamesIcons()
+        /// <summary>
+        /// Generates a process tray icon with a context menu containing "Open Config" and "Exit" options.
+        /// </summary>
+        /// <param name="iconClass">The NotifyIcon object to generate the icon from.</param>
+        /// <returns>The generated NotifyIcon object.</returns>
+        private NotifyIcon GenerateProcessIcon(NotifyIcon iconClass)
         {
-            Icon icon = new Icon(@"icons\G.ico");
-
+            Icon icon = new Icon(@"icons\spanner.ico");
             var contextStrip = new ContextMenuStrip();
-
-            foreach (ToolStripMenuItem item in GamesOptions)
-            {
-                contextStrip.Items.Add(item);
-            }
-
-
-            trayicon = new NotifyIcon()
-            {
-                Icon = icon,
-                ContextMenuStrip = contextStrip,
-                Visible = true
-            };
-        }
-        public void GenerateAppsIcons()
-        {
-            Icon icon = new Icon(@"icons\A.ico");
-
-            var contextStrip = new ContextMenuStrip();
-
-            foreach (ToolStripMenuItem item in AppsOptions)
-            {
-                contextStrip.Items.Add(item);
-            }
-
-
-            trayicon = new NotifyIcon()
+            contextStrip.Items.Add(new ToolStripMenuItem("Open Config", null, new EventHandler(openConfigUtility), "Open Config"));
+            contextStrip.Items.Add(new ToolStripMenuItem("Exit", null, new EventHandler(ProcessUtilities.Exit), "Exit"));
+            return new NotifyIcon()
             {
                 Icon = icon,
                 ContextMenuStrip = contextStrip,
@@ -58,151 +38,63 @@ namespace TrayLauncher11
             };
         }
 
-        public void GenerateUtilityIcons()
+        /// <summary>
+        /// Disposes of all the tray icons created by the program.
+        /// </summary>
+        private void DestroyIcons()
         {
-            Icon icon = new Icon(@"icons\U.ico");
-
-            var contextStrip = new ContextMenuStrip();
-
-            foreach (ToolStripMenuItem item in UtilitiesOptions)
+            foreach (NotifyIcon icon in trayIcons)
             {
-                contextStrip.Items.Add(item);
+                icon.Dispose();
             }
-
-
-            trayicon = new NotifyIcon()
-            {
-                Icon = icon,
-                ContextMenuStrip = contextStrip,
-                Visible = true
-            };
         }
 
-        private void LaunchDIR(object sender, EventArgs e)
+        /// <summary>
+        /// Initializes the icons and their associated context menus for the different types of applications, games, and utilities.
+        /// </summary>
+        private void initializeIcons()
         {
-            Process.Start("explorer.exe", (sender as ToolStripMenuItem).Name);
+            ConfigUtility.generateConfigs(@"games.csv", GamesOptions);
+            ConfigUtility.generateConfigs(@"apps.csv", AppsOptions);
+            ConfigUtility.generateConfigs(@"utilities.csv", UtilitiesOptions);
+
+            processTrayIcon = GenerateProcessIcon(processTrayIcon);
+
+            IconGenerator.GenerateIcons(GamesOptions, @"icons\G.ico", trayIcons);
+            IconGenerator.GenerateIcons(AppsOptions, @"icons\A.ico", trayIcons);
+            IconGenerator.GenerateIcons(UtilitiesOptions, @"icons\U.ico", trayIcons);
         }
 
-        private void Exit(object sender, EventArgs e)
+        /// <summary>
+        /// Changes the state of the TrayLauncher11 window to FormWindowState.Normal.
+        /// </summary>
+        /// <param name="sender">The object that triggered the event.</param>
+        /// <param name="e">The event arguments.</param>
+        public void openConfigUtility(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.GetCurrentProcess().Kill();
+            this.WindowState = FormWindowState.Normal;
         }
 
-        private void checkGamesConfigs()
+        /// <summary>
+        /// Initializes a new instance of the TrayLauncher11 class.
+        /// </summary>
+        public TrayLauncher11()
         {
-            string[] appLines;
-            try
-            {
-                appLines = File.ReadAllLines(@"games.csv");
-            }
-            catch (Exception ex)
-            {
-                File.WriteAllText(@"games.csv", @$"Steam,C:\Program Files (x86)\Steam\steam.exe");
-                appLines = new string[] { @$"Steam,C:\Program Files (x86)\Steam\steam.exe" };
-            }
-
-
-            foreach (string line in appLines)
-            {
-                var lineSplit = line.Split(",");
-                var item = new ToolStripMenuItem(lineSplit[0], null, new EventHandler(LaunchDIR), lineSplit[1]);
-                GamesOptions.Add(item);
-            }
-
-            var exit = new ToolStripMenuItem("Exit", null, new EventHandler(Exit), "Exit");
-            GamesOptions.Add(exit);
-        }
-
-        private void checkAppConfigs()
-        {
-            string[] appLines;
-            try
-            {
-                appLines = File.ReadAllLines(@"apps.csv");
-            }
-            catch (Exception ex)
-            {
-                File.WriteAllText(@"apps.csv", @$"Desktop,C:\users\{Environment.UserName}\Desktop");
-                appLines = new string[] { @$"Desktop,C:\users\{Environment.UserName}\Desktop"};
-            }
-
-
-            foreach (string line in appLines)
-            {
-                var lineSplit = line.Split(",");
-                var item = new ToolStripMenuItem(lineSplit[0], null, new EventHandler(LaunchDIR), lineSplit[1]);
-                AppsOptions.Add(item);
-            }
-
-            var exit = new ToolStripMenuItem("Exit", null, new EventHandler(Exit), "Exit");
-            AppsOptions.Add(exit);
-        }
-
-        private void checkUtilitiesConfigs()
-        {
-            string[] appLines;
-            try
-            {
-                appLines = File.ReadAllLines(@"utilities.csv");
-            }
-            catch (Exception ex)
-            {
-                string[] lines =  {@"Chrome,C:\Program Files\Google\Chrome\Application\chrome.exe",
-                    @"Telegram,C:\Users\xboxa\AppData\Roaming\Telegram Desktop\Telegram.exe"};
-
-                File.WriteAllLines(@"utilities.csv", lines);
-                appLines = new string[] {@"Chrome,C:\Program Files\Google\Chrome\Application\chrome.exe",
-                    @"Telegram,C:\Users\xboxa\AppData\Roaming\Telegram Desktop\Telegram.exe"};
-            }
-
-
-            foreach (string line in appLines)
-            {
-                var lineSplit = line.Split(",");
-                var item = new ToolStripMenuItem(lineSplit[0], null, new EventHandler(LaunchDIR), lineSplit[1]);
-                UtilitiesOptions.Add(item);
-            }
-
-            var exit = new ToolStripMenuItem("Exit", null, new EventHandler(Exit), "Exit");
-            UtilitiesOptions.Add(exit);
-        }
-
-
-        public Form1()
-        {
-            checkGamesConfigs();
-            checkAppConfigs();
-            checkUtilitiesConfigs();
-
-            GenerateGamesIcons();
-            GenerateAppsIcons();
-            GenerateUtilityIcons();
             InitializeComponent();
 
+            initializeIcons();
             this.WindowState = FormWindowState.Minimized;
         }
 
-        private void Form1_Resize(object sender, EventArgs e)
+        /// <summary>
+        /// Disposes of the tray icons and the process tray icon when the program is closed.
+        /// </summary>
+        /// <param name="e">The event arguments.</param>
+        protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            //if the form is minimized  
-            //hide it from the task bar  
-            //and show the system tray icon (represented by the NotifyIcon control)  
-            if (this.WindowState == FormWindowState.Minimized)
-            {
-                Hide();
-                this.FormBorderStyle = FormBorderStyle.SizableToolWindow;
-            }
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                // turn on WS_EX_TOOLWINDOW style bit
-                cp.ExStyle |= 0x80;
-                return cp;
-            }
+            DestroyIcons();
+            processTrayIcon.Dispose();
+            base.OnFormClosing(e);
         }
     }
 }
